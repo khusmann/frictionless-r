@@ -37,7 +37,9 @@ Imports:
     utils,
     yaml,
     tidyselect,
-    rlang
+    rlang,
+    vctrs,
+    haven
 Suggests:
     hms,
     knitr,
