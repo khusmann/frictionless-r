@@ -1,8 +1,30 @@
 #' @import vctrs
 
 #' @export
+labelled_ext <- function(x, labels=NULL, label=NULL, levels=NULL,
+                          ordered=NULL, ...) {
+  if (is.character(x) || is.numeric(x)) {
+    if (is.null(levels)) {
+      haven::labelled(x, labels=labels, label=label)
+    } else {
+      labelled_enum(
+        x, labels=labels, label=label, levels=levels, ordered=ordered
+      )
+    }
+  } else if (is.logical(x)) {
+    assertthat::assert_that(
+      is.null(labels), is.null(levels), is.null(ordered),
+      msg = "Logical values cannot have value labels, levels, or ordering"
+    )
+    labelled_lgl(x, label=label)
+  } else {
+    stop("Vector must be character, numeric, or logical")
+  }
+}
+
+#' @export
 labelled_enum <- function(x, labels=NULL, label=NULL, levels=NULL,
-                          ordered=FALSE, ...) {
+                          ordered=NULL, ...) {
   x <- vec_data(x)
 
   assertthat::assert_that(
@@ -38,6 +60,8 @@ labelled_enum <- function(x, labels=NULL, label=NULL, levels=NULL,
     msg = "Label must be a character vector of length one."
   )
 
+  ordered <- replace_null(ordered, FALSE)
+
   new_vctr(
     x,
     labels = labels,
@@ -57,6 +81,23 @@ is.enum <- function(x, ...) {
 #' @export
 is.ordered_enum <- function(x, ...) {
   is.enum(x) && attr(x, "ordered", exact=TRUE)
+}
+
+#' @export
+vec_ptype_full.haven_labelled_enum <- function(x, ...) {
+  paste0("labelled_enum<", vctrs::vec_ptype_full(vec_data(x)), ">")
+}
+
+#' @export
+vec_ptype_abbr.haven_labelled_enum <- function(x, ...) {
+  paste0("e", vec_ptype_abbr(vec_data(x)), "+lbl")
+}
+
+#' @export
+obj_print_footer.haven_labelled_enum <- function(x, ...) {
+  haven::print_labels(x)
+  cat(paste(c("\nLevels:", levels(x), "\n")))
+  invisible(x)
 }
 
 #' @export

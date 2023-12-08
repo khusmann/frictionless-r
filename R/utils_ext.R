@@ -54,6 +54,7 @@ read_delim_ext <- function(file, delim, na = c("", "NA"), col_types = NULL,
 
   channels <- channel_opt_standardize(channels)
 
+  # Only include col types of selected cols (to avoid warning)
   if (is.null(col_select)) {
     selected_col_types <- col_types
   } else {
