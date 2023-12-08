@@ -72,7 +72,7 @@ test_that("haven_labelled_lgl works", {
 })
 
 test_that("labelled_enum works", {
-  x <- c(1, 1, 2, 1, 1, 2)
+  x <- as.integer(c(1, 1, 2, 1, 1, 2))
   labels <- c(FOO = 1)
   label <- "Variable label"
   levels <- c(1, 2)

@@ -10,19 +10,15 @@ labelled_enum <- function(x, labels=NULL, label=NULL, levels=NULL,
     msg = "Labeled enums must be numeric or character"
   )
 
-  assertthat::assert_that(
-    is.null(labels) || vec_is(labels, x),
-    msg = "Labels must be same type as input vector"
-  )
+  if (!is.null(labels)) {
+    labels <- vec_cast(labels, x)
+  }
 
   if (is.null(levels)) {
     levels <- unique(x)
+  } else {
+    levels <- vec_cast(levels, x)
   }
-
-  assertthat::assert_that(
-    vec_is(levels, x),
-    msg = "Levels must be the same type as input vector"
-  )
 
   missing_levels <- paste0(setdiff(x, levels), collapse = ", ")
 
