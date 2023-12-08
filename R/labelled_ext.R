@@ -58,6 +58,157 @@ levels.haven_labelled_enum <- function(x, ...) {
   attr(x, "levels", exact = TRUE)
 }
 
+#' @export
+vec_ptype2.double.haven_labelled_enum <- function(x, y, ...) {
+  data_type <- vec_ptype2(x, vec_data(y), ...)
+  labelled_enum(
+    data_type,
+    labels = vec_cast_named(attr(y, "labels"), data_type),
+    label = attr(y, "label", exact = TRUE),
+    levels = levels(y),
+    ordered = attr(y, "ordered")
+  )
+}
+
+#' @export
+vec_ptype2.integer.haven_labelled_enum <- vec_ptype2.double.haven_labelled_enum
+
+#' @export
+vec_ptype2.character.haven_labelled_enum <- vec_ptype2.double.haven_labelled_enum
+
+#' @export
+vec_ptype2.haven_labelled_enum.double <- function(x, y, ...) {
+  vec_ptype2(y, x, ...)
+}
+
+#' @export
+vec_ptype2.haven_labelled_enum.integer <- vec_ptype2.haven_labelled_enum.double
+
+#' @export
+vec_ptype2.haven_labelled_enum.character <- vec_ptype2.haven_labelled_enum.double
+
+#' @export
+vec_ptype2.haven_labelled_enum.haven_labelled_enum <- function(x, y, ...,
+                                                               x_arg = "",
+                                                               y_arg = "") {
+  # Use x as the prototype if the input vectors have matching metadata
+  if (identical(attributes(x), attributes(y))) {
+    return(x)
+  }
+
+  data_type <- vec_ptype2(
+    vec_data(x), vec_data(y), ..., x_arg = x_arg, y_arg = y_arg
+  )
+
+  # Prefer labels from LHS
+  x_labels <- vec_cast_named(attr(x, "labels"), data_type, x_arg = x_arg)
+  y_labels <- vec_cast_named(attr(y, "labels"), data_type, x_arg = y_arg)
+  labels <- combine_labels(x_labels, y_labels, x_arg, y_arg)
+
+  # Take the union of the levels
+  x_levels <- vec_cast(levels(x), data_type, x_arg = x_arg)
+  y_levels <- vec_cast(levels(y), data_type, x_arg = y_arg)
+  lvls <- union(x_levels, y_levels)
+
+  # If one is ordered and the other isn't, drop ordering
+  x_ordered <- attr(x, "ordered")
+  y_ordered <- attr(y, "ordered")
+  ordered <- (x_ordered && y_ordered && identical(x_levels, y_levels))
+
+  # Prefer labels from LHS
+  label <- replace_null(
+    attr(x, "label", exact = TRUE),
+    attr(y, "label", exact = TRUE)
+  )
+
+  labelled_enum(
+    data_type,
+    labels = labels,
+    label = label,
+    levels = lvls,
+    ordered = ordered
+  )
+}
+
+#' @export
+vec_cast.double.haven_labelled_enum <- function(x, to, ...) {
+  vec_cast(vec_data(x), to)
+}
+
+#' @export
+vec_cast.integer.haven_labelled_enum <- function(x, to, ...) {
+  vec_cast(vec_data(x), to)
+}
+
+#' @export
+vec_cast.character.haven_labelled_enum <- function(x, to, ...) {
+  if (is.character(x)) {
+    vec_cast(vec_data(x), to, ...)
+  } else {
+    stop_incompatible_cast(x, to, ...)
+  }
+}
+
+#' @export
+vec_cast.haven_labelled_enum.haven_labelled_enum <- function(x, to, ...,
+                                                             x_arg = "",
+                                                             to_arg = "") {
+  # Don't perform any processing if the input vectors have matching metadata
+  if (identical(attributes(x), attributes(to))) {
+    return(x)
+  }
+
+  out_data <- vec_cast(
+    vec_data(x),
+    vec_data(to),
+    ...,
+    x_arg = x_arg,
+    to_arg = to_arg
+  )
+
+  x_label <- attr(x, "label", exact = TRUE)
+  to_label <- attr(to, "label", exact = TRUE)
+
+  x_labels <- attr(x, "labels")
+  to_labels <- attr(to, "labels")
+
+  x_levels <- levels(x)
+  to_levels <- levels(to)
+
+  x_ordered <- attr(x, "ordered")
+  to_ordered <- attr(to, "ordered")
+
+  out_label <- replace_null(to_label, x_label)
+  out_labels <- replace_null(to_labels, x_labels)
+  out_levels <- replace_null(to_levels, x_levels)
+  out_ordered <- replace_null(to_ordered, x_ordered)
+
+  out <- labelled_enum(
+    out_data,
+    labels = out_labels,
+    label = out_label,
+    levels = out_levels,
+    ordered = out_ordered,
+  )
+
+  out
+}
+
+#' @export
+vec_cast.haven_labelled_enum.double <- function(x, to, ...) {
+  vec_cast.haven_labelled_enum.haven_labelled_enum(x, to, ...)
+}
+
+#' @export
+vec_cast.haven_labelled_enum.integer <- function(x, to, ...) {
+  vec_cast.haven_labelled_enum.haven_labelled_enum(x, to, ...)
+}
+
+#' @export
+vec_cast.haven_labelled_enum.character <- function(x, to, ...) {
+  vec_cast.haven_labelled_enum.haven_labelled_enum(x, to, ...)
+}
+
 #####################################
 
 #' @export
@@ -128,9 +279,33 @@ vec_cast.double.haven_labelled_lgl <- function(x, to, ...) {
 #####################################
 
 
-# (Copied from haven::util_ext)
+# (Copied from haven::utils)
+
 # TODO: Remove once vec_cast() preserves names.
 # https://github.com/r-lib/vctrs/issues/623
 vec_cast_named <- function(x, to, ...) {
   stats::setNames(vec_cast(x, to, ...), names(x))
+}
+
+combine_labels <- function(x_labels, y_labels, x_arg, y_arg) {
+  x_common <- x_labels[x_labels %in% y_labels]
+  y_common <- y_labels[y_labels %in% x_labels]
+
+  if (length(x_common) > 0) {
+    x_common <- x_common[order(x_common)]
+    y_common <- y_common[order(y_common)]
+
+    problems <- x_common[names(x_common) != names(y_common)]
+    if (length(problems) > 0) {
+      problems <- cli::cli_vec(problems, list(vec_trunc = 10))
+
+      cli_warn(c(
+        "{.var {x_arg}} and {.var {y_arg}} have conflicting value labels.",
+        i = "Labels for these values will be taken from {.var {x_arg}}.",
+        x = "Values: {.val {problems}}"
+      ))
+    }
+  }
+
+  c(x_labels, y_labels[!y_labels %in% x_labels])
 }

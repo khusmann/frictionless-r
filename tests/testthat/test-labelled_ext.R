@@ -89,6 +89,42 @@ test_that("labelled_enum works", {
   expect_false(is.ordered_enum(lbl_enum))
   expect_true(is.ordered_enum(lbl_enum_ordered))
 
+  # Test ptype2
+  expect_equal(
+    vec_ptype2(lbl_enum, integer()),
+    labelled_enum(integer(), as.integer(labels), label, as.integer(lvls), FALSE)
+  )
+  expect_equal(
+    vec_ptype2(lbl_enum, double()),
+    labelled_enum(double(), as.double(labels), label, as.double(lvls), FALSE)
+  )
+  expect_error(vec_ptype2(lbl_enum, character()))
+  expect_equal(
+    vec_ptype2(double(), lbl_enum),
+    labelled_enum(double(), as.double(labels), label, as.double(lvls), FALSE)
+  )
+  expect_equal(
+    vec_ptype2(integer(), lbl_enum),
+    labelled_enum(integer(), as.integer(labels), label, as.integer(lvls), FALSE)
+  )
+  expect_error(vec_ptype2(character(), lbl_enum))
+
+  # Test vec_cast
+  expect_equal(
+    vec_cast(lbl_enum, double()),
+    as.double(x)
+  )
+  expect_equal(
+    vec_cast(lbl_enum, integer()),
+    x
+  )
+  expect_error(vec_cast(lbl_enum, character()))
+
+  expect_equal(
+    vec_cast(c(1, 1, 1), lbl_enum),
+    labelled_enum(as.integer(c(1, 1, 1)), labels, label, lvls, FALSE)
+  )
+
   # Test levels
   expect_equal(levels(lbl_enum), lvls)
 
