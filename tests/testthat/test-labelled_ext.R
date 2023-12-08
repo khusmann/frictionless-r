@@ -1,37 +1,81 @@
-test_that("labelled_ext constructs regular haven_labelled types", {
-  test_character <- c("a", "b", "c")
-  test_integer <- as.integer(c(1, 2, 3))
-  test_double <- c(1, 2, 3)
+#' @import vctrs
 
-  expect_s3_class(labelled_ext(test_character), "haven_labelled")
-  expect_s3_class(labelled_ext(test_integer), "haven_labelled")
-  expect_s3_class(labelled_ext(test_double), "haven_labelled")
+test_that("haven_labelled_lgl works", {
+  vec <- c(TRUE, FALSE, TRUE)
+  var_label <- "Variable label"
+  var_label2 <- "Variable label2"
+
+  lbl_lgl <- labelled_lgl(vec, label = var_label)
+  lbl_lgl2 <- labelled_lgl(vec, label = var_label2)
+
+  expect_s3_class(lbl_lgl, "haven_labelled")
+
+  # Test vec_ptype2
+  expect_equal(
+    vec_ptype2(lbl_lgl, logical()),
+    labelled_lgl(logical(), label=var_label)
+  )
+  expect_error(vec_ptype2(lbl_lgl, integer()))
+  expect_error(vec_ptype2(lbl_lgl, double()))
+  expect_error(vec_ptype2(lbl_lgl, character()))
+
+   expect_equal(
+    vec_ptype2(logical(), lbl_lgl),
+    labelled_lgl(logical(), label=var_label)
+  )
+  expect_error(vec_ptype2(integer(), lbl_lgl))
+  expect_error(vec_ptype2(double(), lbl_lgl))
+  expect_error(vec_ptype2(character(), lbl_lgl))
+
+  # Test vec_cast
+  expect_equal(vec_cast(lbl_lgl, logical()), as.logical(vec))
+  expect_equal(vec_cast(lbl_lgl, integer()), as.integer(vec))
+  expect_equal(vec_cast(lbl_lgl, double()), as.double(vec))
+  expect_error(vec_cast(lbl_lgl, character()))
+
+  expect_equal(vec_cast(vec, lbl_lgl), lbl_lgl)
+  expect_error(vec_cast(integer(), lbl_lgl))
+  expect_error(vec_cast(double(), lbl_lgl))
+  expect_error(vec_cast(character(), lbl_lgl))
+
+  # Misc test casts & promotion
+  expect_equal(lbl_lgl == FALSE, !vec)
+  expect_equal(FALSE == lbl_lgl, !vec)
+  expect_equal(
+    c(lbl_lgl, lbl_lgl2),
+    labelled_lgl(c(vec, vec), label=var_label)
+  )
+  expect_equal(
+    c(lbl_lgl, vec),
+    labelled_lgl(c(vec, vec), label=var_label)
+  )
+  expect_equal(
+    c(vec, lbl_lgl),
+    c(vec, vec)
+  )
+
+  # Test type casts
+  expect_equal(as.logical(lbl_lgl), vec)
+  expect_equal(as.integer(lbl_lgl), as.integer(vec))
+  expect_equal(as.double(lbl_lgl), as.double(vec))
+  expect_equal(as.character(lbl_lgl), as.character(vec))
+  # TODO: as_factor
+
+  # Labels should be string
+  expect_error(lbl_lgl(TRUE, label=1))
+
+  # Data should be logical
+  expect_error(labelled_lgl("foo"))
 })
 
-test_that("haven_labelled works with logical types", {
-  labelled_lgl <- labelled_ext(c(TRUE, FALSE, TRUE), label = "Variable label")
-
-  expect_s3_class(labelled_lgl, "haven_labelled")
-
-  # Test type promotion
-  expect_equal(labelled_lgl == FALSE, c(FALSE, TRUE, FALSE))
-  expect_equal(FALSE == labelled_lgl, c(FALSE, TRUE, FALSE))
-
-  expect_equal(labelled_lgl == 0, c(FALSE, TRUE, FALSE))
-  expect_equal(0 == labelled_lgl, c(FALSE, TRUE, FALSE))
-
-  # Logical types should not be constructed with value labels or levels
-  expect_error(labelled_ext(TRUE, labels=c(FOO=1)))
-  expect_error(labelled_ext(TRUE, levels="FOO"))
-})
-
-test_that("labelled_ext constructs haven_labelled_enum types", {
+test_that("labelled_enum constructs haven_labelled_enum types", {
   x <- c(1, 1, 2, 1, 1, 2)
   labels <- c(FOO = 1)
   label <- "Variable label"
   levels <- c(1, 2)
+  ordered <- FALSE
 
-  labelled_enum <- labelled_ext(x, labels, label, levels)
+  labelled_enum <- labelled_enum(x, labels, label, levels, ordered)
 
   expect_s3_class(labelled_enum, c("haven_labelled_enum", "haven_labelled"))
 

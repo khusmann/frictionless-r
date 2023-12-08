@@ -1,40 +1,8 @@
 #' @import vctrs
 
-labelled_ext <- function(x, labels=NULL, label=NULL, levels=NULL, ...) {
-  if (is.character(x) || is.numeric(x)) {
-    if (is.null(levels)) {
-      haven::labelled(x, labels, label)
-    } else {
-      new_labelled_enum(x, labels, label, levels)
-    }
-  } else if (is.logical(x)) {
-    assertthat::assert_that(
-      is.null(labels),
-      is.null(levels),
-      msg = "Logical values cannot have labels or levels"
-    )
-    new_labelled_lgl(x, label)
-  } else {
-    stop("Error: cannot make labelled vctr from type")
-  }
-}
-
-new_labelled_lgl <- function(x, label) {
-  x <- vec_data(x)
-
-  assertthat::assert_that(
-    is.logical(x), msg = glue::glue("Expected logical vector, got {x}")
-  )
-
-  vctrs::new_vctr(
-    x,
-    label = label,
-    class = c("haven_labelled"),
-    inherit_base_type = TRUE
-  )
-}
-
-new_labelled_enum <- function(x, labels, label, levels) {
+#' @export
+labelled_enum <- function(x, labels=NULL, label=NULL, levels=NULL,
+                          ordered=FALSE, ...) {
   x <- vec_data(x)
 
   assertthat::assert_that(
@@ -73,24 +41,83 @@ new_labelled_enum <- function(x, labels, label, levels) {
     labels = labels,
     label = label,
     levels = levels,
+    ordered = ordered,
     class = c("haven_labelled_enum", "haven_labelled"),
     inherit_base_type = TRUE
   )
 }
 
+#####################################
+
 #' @export
-vec_ptype2.logical.haven_labelled <- function(x, y, ...) {
-  data_type <- vec_ptype2(x, vec_data(y), ...)
-  labelled_ext(
-    data_type,
-    labels = vec_cast_named(attr(y, "labels"), data_type),
-    label = attr(y, "label", exact = TRUE),
+labelled_lgl <- function(x, label=NULL) {
+  x <- vec_data(x)
+
+  assertthat::assert_that(
+    is.logical(x), msg = glue::glue("Expected logical vector")
+  )
+
+  assertthat::assert_that(
+    is.null(label) || (is.character(label) && length(label) == 1),
+    msg = "Label must be a character vector of length one."
+  )
+
+  vctrs::new_vctr(
+    x,
+    label = label,
+    class = c("haven_labelled_lgl", "haven_labelled"),
+    inherit_base_type = TRUE
   )
 }
 
 #' @export
-vec_ptype2.haven_labelled.logical <- function(x, y, ...) vec_ptype2(y, x, ...)
+vec_ptype2.logical.haven_labelled_lgl <- function(x, y, ...) {
+  labelled_lgl(logical(), label=attr(y, "label", exact = TRUE))
+}
 
+#' @export
+vec_ptype2.haven_labelled_lgl.logical <- function(x, y, ...) {
+  vec_ptype2(y, x, ...)
+}
+
+#' @export
+vec_ptype2.haven_labelled_lgl.haven_labelled_lgl <- function(x, y, ...) {
+  # Prefer variable labels from LHS
+  label <- replace_null(
+    attr(x, "label", exact = TRUE),
+    attr(y, "label", exact = TRUE)
+  )
+
+  labelled_lgl(logical(), label=label)
+}
+
+#' @export
+vec_cast.haven_labelled_lgl.haven_labelled_lgl <- function(x, to, ...) {
+  labelled_lgl(
+    vec_data(x),
+    label=attr(x, "label", exact = TRUE)
+  )
+}
+
+#' @export
+vec_cast.logical.haven_labelled_lgl <- function(x, to, ...) {
+  vec_cast(vec_data(x), to)
+}
+
+#' @export
+vec_cast.integer.haven_labelled_lgl <- function(x, to, ...) {
+  vec_cast(vec_data(x), to)
+}
+
+#' @export
+vec_cast.double.haven_labelled_lgl <- function(x, to, ...) {
+  vec_cast(vec_data(x), to)
+}
+
+#####################################
+
+
+# (Copied from haven::util_ext)
 # TODO: Remove once vec_cast() preserves names.
 # https://github.com/r-lib/vctrs/issues/623
 vec_cast_named <- function(x, to, ...) {
