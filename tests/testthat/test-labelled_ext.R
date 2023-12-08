@@ -54,6 +54,9 @@ test_that("haven_labelled_lgl works", {
     c(vec, vec)
   )
 
+  # Test type assertion
+  expect_true(is.logical(lbl_lgl))
+
   # Test type casts
   expect_equal(as.logical(lbl_lgl), vec)
   expect_equal(as.integer(lbl_lgl), as.integer(vec))
@@ -68,16 +71,28 @@ test_that("haven_labelled_lgl works", {
   expect_error(labelled_lgl("foo"))
 })
 
-test_that("labelled_enum constructs haven_labelled_enum types", {
+test_that("labelled_enum works", {
   x <- c(1, 1, 2, 1, 1, 2)
   labels <- c(FOO = 1)
   label <- "Variable label"
   levels <- c(1, 2)
-  ordered <- FALSE
 
-  labelled_enum <- labelled_enum(x, labels, label, levels, ordered)
+  lbl_enum <- labelled_enum(x, labels, label, levels, FALSE)
+  lbl_enum_ordered <- labelled_enum(x, labels, label, levels, TRUE)
 
-  expect_s3_class(labelled_enum, c("haven_labelled_enum", "haven_labelled"))
+  expect_s3_class(lbl_enum, c("haven_lbl_enum", "haven_labelled"))
+  expect_s3_class(lbl_enum_ordered, c("haven_lbl_enum", "haven_labelled"))
+
+  # Test is.* methods
+  expect_true(is.enum(lbl_enum))
+  expect_true(is.enum(lbl_enum_ordered))
+  expect_false(is.ordered_enum(lbl_enum))
+  expect_true(is.ordered_enum(lbl_enum_ordered))
+
+  # Test levels
+  expect_equal(levels(lbl_enum), levels)
+
+  ### Test construction errors
 
   # Value label type must match value
   expect_error(labelled_ext(x, labels=c(FOO = "1")))

@@ -47,6 +47,21 @@ labelled_enum <- function(x, labels=NULL, label=NULL, levels=NULL,
   )
 }
 
+#' @export
+is.enum <- function(x, ...) {
+  inherits(x, "haven_labelled_enum")
+}
+
+#' @export
+is.ordered_enum <- function(x, ...) {
+  is.enum(x) && attr(x, "ordered", exact=TRUE)
+}
+
+#' @export
+levels.haven_labelled_enum <- function(x, ...) {
+  attr(x, "levels", exact = TRUE)
+}
+
 #####################################
 
 #' @export
