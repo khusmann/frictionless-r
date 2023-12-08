@@ -10,8 +10,14 @@ labelled_enum <- function(x, labels=NULL, label=NULL, levels=NULL,
     msg = "Labeled enums must be numeric or character"
   )
 
+
   if (!is.null(labels)) {
-    labels <- vec_cast(labels, x)
+    assertthat::assert_that(
+      !is.null(names(labels)),
+      msg = "Labels must have names"
+    )
+
+    labels <- vec_cast_named(labels, x)
   }
 
   if (is.null(levels)) {
@@ -65,7 +71,7 @@ vec_ptype2.double.haven_labelled_enum <- function(x, y, ...) {
     data_type,
     labels = vec_cast_named(attr(y, "labels"), data_type),
     label = attr(y, "label", exact = TRUE),
-    levels = levels(y),
+    levels = vec_cast_named(levels(y), data_type),
     ordered = attr(y, "ordered")
   )
 }
@@ -85,9 +91,6 @@ vec_ptype2.haven_labelled_enum.double <- function(x, y, ...) {
 vec_ptype2.haven_labelled_enum.integer <- vec_ptype2.haven_labelled_enum.double
 
 #' @export
-vec_ptype2.haven_labelled_enum.character <- vec_ptype2.haven_labelled_enum.double
-
-#' @export
 vec_ptype2.haven_labelled_enum.haven_labelled_enum <- function(x, y, ...,
                                                                x_arg = "",
                                                                y_arg = "") {
@@ -100,7 +103,7 @@ vec_ptype2.haven_labelled_enum.haven_labelled_enum <- function(x, y, ...,
     vec_data(x), vec_data(y), ..., x_arg = x_arg, y_arg = y_arg
   )
 
-  # Prefer labels from LHS
+  # Prefer value labels from LHS
   x_labels <- vec_cast_named(attr(x, "labels"), data_type, x_arg = x_arg)
   y_labels <- vec_cast_named(attr(y, "labels"), data_type, x_arg = y_arg)
   labels <- combine_labels(x_labels, y_labels, x_arg, y_arg)
@@ -115,7 +118,7 @@ vec_ptype2.haven_labelled_enum.haven_labelled_enum <- function(x, y, ...,
   y_ordered <- attr(y, "ordered")
   ordered <- (x_ordered && y_ordered && identical(x_levels, y_levels))
 
-  # Prefer labels from LHS
+  # Prefer variable labels from LHS
   label <- replace_null(
     attr(x, "label", exact = TRUE),
     attr(y, "label", exact = TRUE)
@@ -180,8 +183,12 @@ vec_cast.haven_labelled_enum.haven_labelled_enum <- function(x, to, ...,
 
   out_label <- replace_null(to_label, x_label)
   out_labels <- replace_null(to_labels, x_labels)
-  out_levels <- replace_null(to_levels, x_levels)
+  out_levels <- to_levels
   out_ordered <- replace_null(to_ordered, x_ordered)
+
+  if (length(setdiff(x_levels, out_levels)) > 0) {
+    stop_incompatible_cast(x, to, ..., x_arg=x_arg, to_arg=to_arg)
+  }
 
   out <- labelled_enum(
     out_data,
@@ -191,22 +198,39 @@ vec_cast.haven_labelled_enum.haven_labelled_enum <- function(x, to, ...,
     ordered = out_ordered,
   )
 
+  if (!is.null(to_labels)) {
+    lossy <- x %in% x_labels[!x_labels %in% out_labels]
+    maybe_lossy_cast(
+      out, x, to, lossy,
+      x_arg = x_arg,
+      to_arg = to_arg,
+      details = paste0("Values are labelled in `", x_arg, "` but not in `", to_arg, "`.")
+    )
+  }
+
+
   out
 }
 
 #' @export
 vec_cast.haven_labelled_enum.double <- function(x, to, ...) {
-  vec_cast.haven_labelled_enum.haven_labelled_enum(x, to, ...)
+  vec_cast.haven_labelled_enum.haven_labelled_enum(
+    labelled_enum(x), to, ...
+  )
 }
 
 #' @export
 vec_cast.haven_labelled_enum.integer <- function(x, to, ...) {
-  vec_cast.haven_labelled_enum.haven_labelled_enum(x, to, ...)
+  vec_cast.haven_labelled_enum.haven_labelled_enum(
+    labelled_enum(x), to, ...
+  )
 }
 
 #' @export
 vec_cast.haven_labelled_enum.character <- function(x, to, ...) {
-  vec_cast.haven_labelled_enum.haven_labelled_enum(x, to, ...)
+  vec_cast.haven_labelled_enum.haven_labelled_enum(
+    labelled_enum(x), to, ...
+  )
 }
 
 #####################################
@@ -299,7 +323,7 @@ combine_labels <- function(x_labels, y_labels, x_arg, y_arg) {
     if (length(problems) > 0) {
       problems <- cli::cli_vec(problems, list(vec_trunc = 10))
 
-      cli_warn(c(
+      cli::cli_warn(c(
         "{.var {x_arg}} and {.var {y_arg}} have conflicting value labels.",
         i = "Labels for these values will be taken from {.var {x_arg}}.",
         x = "Values: {.val {problems}}"
