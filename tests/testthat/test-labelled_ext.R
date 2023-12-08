@@ -75,10 +75,10 @@ test_that("labelled_enum works", {
   x <- as.integer(c(1, 1, 2, 1, 1, 2))
   labels <- c(FOO = 1)
   label <- "Variable label"
-  levels <- c(1, 2)
+  lvls <- c(1, 2)
 
-  lbl_enum <- labelled_enum(x, labels, label, levels, FALSE)
-  lbl_enum_ordered <- labelled_enum(x, labels, label, levels, TRUE)
+  lbl_enum <- labelled_enum(x, labels, label, lvls, FALSE)
+  lbl_enum_ordered <- labelled_enum(x, labels, label, lvls, TRUE)
 
   expect_s3_class(lbl_enum, c("haven_lbl_enum", "haven_labelled"))
   expect_s3_class(lbl_enum_ordered, c("haven_lbl_enum", "haven_labelled"))
@@ -90,7 +90,7 @@ test_that("labelled_enum works", {
   expect_true(is.ordered_enum(lbl_enum_ordered))
 
   # Test levels
-  expect_equal(levels(lbl_enum), levels)
+  expect_equal(levels(lbl_enum), lvls)
 
   ### Test construction errors
 
@@ -102,5 +102,5 @@ test_that("labelled_enum works", {
   expect_error(labelled_ext(x, levels=c("1", "2")))
 
   # Variable label must be a character
-  expect_error(labelled_ext(x, labels, 2, levels))
+  expect_error(labelled_ext(x, labels, 2, lvls))
 })
