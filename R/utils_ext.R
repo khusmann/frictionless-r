@@ -64,6 +64,39 @@ read_delim_ext <- function(file, delim, na = c("", "NA"), col_types = NULL,
     )]
   }
 
+  readr_cols <- purrr::map(
+    selected_col_types,
+    function(c) {
+      if (is.collector(c)) {
+        c
+      } else {
+        c$data_type
+      }
+    }
+  )
+
+  label_fn <- purrr::map(
+    selected_col_types,
+    function(c) {
+      if (is.collector(c)) {
+        \(x) x
+      } else {
+        \(x) labelled_ext(x, c$labels, c$label, c$levels, c$ordered)
+      }
+    }
+  )
+
+  missing_label_fn <- purrr::map(
+    selected_col_types,
+    function(c) {
+      if (is.collector(c)) {
+        \(x) x
+      } else {
+        \(x) haven::labelled(x, c$missing_labels, c$label)
+      }
+    }
+  )
+
   string_df <- readr::read_delim(
     file,
     delim,
@@ -78,7 +111,7 @@ read_delim_ext <- function(file, delim, na = c("", "NA"), col_types = NULL,
     # Commenting out because https://github.com/tidyverse/readr/issues/1526
     #values_df <- string_df |>
     #  readr::type_convert(
-    #    col_types=selected_col_types,
+    #    col_types=readr_cols,
     #    na=na,
     #  ) |>
     #  dplyr::rename_with(\(x) paste0(x, channels[["values"]]))
@@ -87,12 +120,18 @@ read_delim_ext <- function(file, delim, na = c("", "NA"), col_types = NULL,
     values_df <- readr::read_delim(
         file,
         delim,
-        col_types=selected_col_types,
+        col_types=readr_cols,
         col_select = {{col_select}},
         na=na,
         ...
       ) |>
-      dplyr::rename_with(\(x) paste0(x, channels[["values"]]))
+      dplyr::rename_with(\(x) paste0(x, channels[["values"]])) |>
+      dplyr::mutate(
+        dplyr::across(
+          dplyr::everything(),
+          \(x) label_fn[[dplyr::cur_column()]](x)
+        )
+      )
 
     result <- dplyr::bind_cols(result, values_df)
   }
@@ -105,8 +144,16 @@ read_delim_ext <- function(file, delim, na = c("", "NA"), col_types = NULL,
           \(x) dplyr::if_else(x %in% na, x, NA_character_)
         )
       ) |>
-      dplyr::rename_with(\(x) paste0(x, channels[["missing"]]))
+      dplyr::rename_with(\(x) paste0(x, channels[["missing"]])) |>
+      dplyr::mutate(
+        dplyr::across(
+          dplyr::everything(),
+          \(x) missing_label_fn[[dplyr::cur_column()]](x)
+        )
+      )
     result <- dplyr::bind_cols(result, values_df)
   }
   result
 }
+
+is.collector <- function(x) inherits(x, "collector")

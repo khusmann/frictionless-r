@@ -282,40 +282,76 @@ read_resource <- function(package, resource_name, col_select = NULL,
     )
   )
 
+  na_values <- replace_null(schema$missingValues, "")
+
   # Create col_types: list(<collector_character>, <collector_logical>, ...)
   col_types <- purrr::map(fields, function(x) {
     type <- replace_null(x$type, NA_character_)
+    description <- x$description
     enum <- x$constraints$enum
+    enumOrdered <- x$enumOrdered
+    enumLabels <- x$enumLabels
     group_char <- ifelse(replace_null(x$groupChar, "") != "", TRUE, FALSE)
     bare_number <- ifelse(replace_null(x$bareNumber, "") != FALSE, TRUE, FALSE)
     format <- replace_null(x$format, "default") # Undefined => default
 
+    if (!is.null(enumLabels)) {
+      # Swap names / values
+      allLabels <- purrr::set_names(names(enumLabels), enumLabels)
+
+      value_cast_fn <- switch(type,
+        string = as.character,
+        number = as.double,
+        integer = as.integer,
+        as.character
+      )
+
+      valueLabels <- purrr::map_vec(
+        allLabels[!allLabels %in% na_values], value_cast_fn
+      )
+      missingLabels <- allLabels[allLabels %in% na_values]
+    } else {
+      valueLabels <- NULL
+      missingLabels <- NULL
+    }
+
+    assemble_labelled <- function(dt) {
+      list(
+        data_type = dt,
+        labels = valueLabels,
+        missing_labels = missingLabels,
+        label = description,
+        levels = enum,
+        ordered = enumOrdered
+      )
+    }
+
     # Assign types and formats
     col_type <- switch(type,
       "string" = if (length(enum) > 0) {
-        readr::col_factor(levels = enum)
+        assemble_labelled(readr::col_character())
       } else {
-        readr::col_character()
+        assemble_labelled(readr::col_character())
       },
       "number" = if (length(enum) > 0) {
-        readr::col_factor(levels = as.character(enum))
+        assemble_labelled(readr::col_number())
       } else if (group_char) {
-        readr::col_number() # Supports grouping_mark
+        assemble_labelled(readr::col_number()) # Supports grouping_mark
       } else if (bare_number) {
-        readr::col_double() # Allows NaN, INF, -INF
+        assemble_labelled(readr::col_double()) # Allows NaN, INF, -INF
       } else {
-        readr::col_number() # Strips non-num. chars, uses default grouping_mark
+        assemble_labelled(readr::col_number()) # Strips non-num. chars, uses default grouping_mark
       },
       "integer" = if (length(enum) > 0) {
-        readr::col_factor(levels = as.character(enum))
+        assemble_labelled(readr::col_integer())
       } else if (bare_number) {
-        readr::col_double() # Not col_integer() to avoid big integers issues
+        assemble_labelled(readr::col_double()) # Not col_integer() to avoid big integers issues
       } else {
-        readr::col_number() # Strips non-numeric chars
+        assemble_labelled(readr::col_number()) # Strips non-numeric chars
       },
-      "boolean" = readr::col_logical(),
-      "object" = readr::col_character(),
-      "array" = readr::col_character(),
+      "boolean" = assemble_labelled(readr::col_logical()),
+      "object" = assemble_labelled(readr::col_character()),
+      "array" = assemble_labelled(readr::col_character()),
       "date" = readr::col_date(format = switch(format,
         "default" = "%Y-%m-%d", # ISO
         "any" = "%AD", # YMD
@@ -338,7 +374,7 @@ read_resource <- function(package, resource_name, col_select = NULL,
       "duration" = readr::col_character(),
       "geopoint" = readr::col_character(),
       "geojson" = readr::col_character(),
-      "any" = readr::col_character()
+      "any" = assemble_labelled(readr::col_character())
     )
     # col_type will be NULL when type is undefined (NA_character_) or an
     # unrecognized value (e.g. "datum", but will be blocked by check_schema()).
@@ -386,7 +422,7 @@ read_resource <- function(package, resource_name, col_select = NULL,
         # a column, see https://rlang.r-lib.org/reference/topic-data-mask.html
         col_select = {{col_select}},
         locale = locale,
-        na = replace_null(schema$missingValues, ""),
+        na = na_values,
         comment = replace_null(dialect$commentChar, ""),
         trim_ws = replace_null(dialect$skipInitialSpace, FALSE),
         # Skip header row when present

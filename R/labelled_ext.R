@@ -43,12 +43,12 @@ labelled_enum <- function(x, labels=NULL, label=NULL, levels=NULL,
   }
 
   if (is.null(levels)) {
-    levels <- unique(x)
+    levels <- na.omit(unique(x))
   } else {
     levels <- vec_cast(levels, x)
   }
 
-  missing_levels <- paste0(setdiff(x, levels), collapse = ", ")
+  missing_levels <- paste0(setdiff(na.omit(x), levels), collapse = ", ")
 
   assertthat::assert_that(
     nchar(missing_levels) == 0,
@@ -92,6 +92,7 @@ vec_ptype_full.haven_labelled_enum <- function(x, ...) {
 vec_ptype_abbr.haven_labelled_enum <- function(x, ...) {
   paste0("e", vec_ptype_abbr(vec_data(x)), "+lbl")
 }
+
 
 #' @export
 obj_print_footer.haven_labelled_enum <- function(x, ...) {
@@ -295,6 +296,11 @@ labelled_lgl <- function(x, label=NULL) {
     class = c("haven_labelled_lgl", "haven_labelled"),
     inherit_base_type = TRUE
   )
+}
+
+#' @export
+vec_ptype_abbr.haven_labelled_lgl <- function(x, ...) {
+  paste0(vec_ptype_abbr(vec_data(x)), "+lbl")
 }
 
 #' @export
