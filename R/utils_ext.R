@@ -125,13 +125,13 @@ read_delim_ext <- function(file, delim, na = c("", "NA"), col_types = NULL,
         na=na,
         ...
       ) |>
-      dplyr::rename_with(\(x) paste0(x, channels[["values"]])) |>
       dplyr::mutate(
         dplyr::across(
           dplyr::everything(),
           \(x) label_fn[[dplyr::cur_column()]](x)
         )
-      )
+      ) |>
+      dplyr::rename_with(\(x) paste0(x, channels[["values"]]))
 
     result <- dplyr::bind_cols(result, values_df)
   }
@@ -144,14 +144,15 @@ read_delim_ext <- function(file, delim, na = c("", "NA"), col_types = NULL,
           \(x) dplyr::if_else(x %in% na, x, NA_character_)
         )
       ) |>
-      dplyr::rename_with(\(x) paste0(x, channels[["missing"]])) |>
       dplyr::mutate(
         dplyr::across(
           dplyr::everything(),
           \(x) missing_label_fn[[dplyr::cur_column()]](x)
         )
-      )
-    result <- dplyr::bind_cols(result, values_df)
+      ) |>
+      dplyr::rename_with(\(x) paste0(x, channels[["missing"]]))
+
+    result <- dplyr::bind_cols(result, missing_df)
   }
   result
 }
