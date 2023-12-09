@@ -84,6 +84,11 @@ is.ordered_enum <- function(x, ...) {
 }
 
 #' @export
+as.character.haven_labelled_enum <- function(x, ...) {
+  as.character(haven::as_factor(x, ...))
+}
+
+#' @export
 vec_ptype_full.haven_labelled_enum <- function(x, ...) {
   paste0("labelled_enum<", vctrs::vec_ptype_full(vec_data(x)), ">")
 }
